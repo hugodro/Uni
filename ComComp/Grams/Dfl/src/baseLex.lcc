@@ -1,0 +1,199 @@
+/********************************************************
+* Fichier: baseLex.lcc.
+* Desc: Lexicographic analyser for C# language.
+* Module: AkraLog : CSharp.
+* Rev: 2001/04/23 : REV 0 : Hugo DesRosiers : Creation.
+********************************************************/
+
+%option yylineno
+%option batch
+%option c++
+%option yyclass="SharpFlex"
+
+%{
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "identifiers.h"
+#include "statements.h"
+#include "expressions.h"
+#include "typeDef.h"
+#include "listStmts.h"
+#include "customFlex.h"
+
+/**** Classes used as non-terminal types in the grammar. ****/
+class StatementSrp;
+class ExpressionSrp;
+class BaseIdentifierSrp;
+class LiteralSrp;
+class BlockListAk;
+class TypeDefinition;
+class VarDeclarationSrp;
+class ClauseHolderSrp;
+class CatchStmtHelper;
+
+
+#include "gramTokens.h"
+
+
+void SkipCommentV1(void);
+void SkipCommentV2(void);
+
+extern int GetTokenID(char *);
+extern void yyerror(char *);
+
+extern int yychar;
+
+/*** Global variables defined in this module. ***/
+static char StrBuffer[1024];
+
+%}
+
+alpha   [a-zA-Z]
+digit   [0-9]
+hexa [0-9a-fA-F]
+special [\_]
+ident   (({alpha}|{special})({alpha}|{digit}|{special})*)
+integer     ({digit}+[lL]?)
+exp     ([Ee][-+]?{digit}+)
+float   ((({digit}+\.?)|(\.{digit}+)){digit}*{exp}?[fFdD]?)
+timenum ({digit}+[YMDhmstun])
+timeval ({timenum}+)
+hexaNumber (0x{hexa}+)
+newlineCR (\r)
+newlineLF (\n)
+newlineMIX ({newlineCR}{newlineLF})
+newline ({newlineMIX}|{newlineCR}|{newlineLF})
+
+%%
+[\ \t\f]+   {;}
+{newline}	        { ; }
+
+"/*"            { SkipCommentV1(); }
+"//"            { SkipCommentV2(); }
+
+">="		{ return EQ_OP; }
+"<="		{ return LE_OP; }
+"!="		{ return NE_OP; }		/* NE for C-side of compiler. */
+"=="		{ return EQ_OP; }
+
+"&&"		{ return ANDCON_OP; }
+"||"            	{ return ORCON_OP; }
+"++"		{ return INCR_OP; }
+"--"		{ return DECR_OP; }
+"<<"		{ return LSHIFT_OP; }
+">>"		{ return RSHIFT_OP; }
+"+="		{ return PLUSEQ_OP;}
+"-="		{ return MINUSEQ_OP;}
+"*="		{ return MULTEQ_OP;}
+"/="		{ return DIVEQ_OP;}
+"%="		{ return MODEQ_OP;}
+"&="		{ return ANDEQ_OP;}
+"|="		{ return OREQ_OP;}
+"^="		{ return NOTEQ_OP;}
+"<<="		{ return LSHIFTEQ_OP;}
+">>="		{ return RSHIFTEQ_OP;}
+
+"("             { return '('; }
+","             { return ','; }
+")"             { return ')'; }
+";"             { return ';'; }
+"{"             { return '{'; }
+"}"             { return '}'; }
+"["             { return '['; }
+"]"             { return ']'; }
+"*"             { return '*'; }
+"/"             { return '/'; }
+"+"             { return '+'; }
+"-"             { return '-'; }
+"%"             { return '%'; }
+"^"             { return '^'; }
+"&"             { return '&'; }
+"|"		{ return '|'; }
+"`"		{ return '`'; }
+"?"             { return '?'; }
+":"             { return ':'; }
+"!"             { return '!'; }
+"."             { return '.'; }
+"~"             { return '~'; }
+"<"             { return '<'; }
+">"             { return '>'; }
+"="             { return '='; }
+
+true {
+	srplval.boolValue= 1;
+	return BOOLEAN_LITERAL;
+ }
+
+false {
+	srplval.boolValue= 0;
+	return BOOLEAN_LITERAL;
+ }
+
+{ident} {
+    int tokenID;
+
+    if ((tokenID= GetTokenID(yytext)) != -1) {
+	return tokenID;
+     }
+    else {
+	srplval.identifier= IdentifierSrp::addUniqueInstance(yytext);
+	return IDENTIFIER;
+    }
+}
+
+{integer} {
+/* These things are temporary, we must construct proper obj-containers and then ship up. */
+	unsigned int i, result;
+
+	i= strlen(yytext) - 1;
+	if ((yytext[i]== 'l') || (yytext[i] == 'L')) {
+	    srplval.longNumber[0]= atoi(yytext);
+	    result= INTEGER_LITERAL;
+	 }
+	else {
+	    srplval.integerNumber= atoi(yytext);
+	    result= INTEGER_LITERAL;
+	 }
+	return result;
+}
+
+
+{float} {
+/* ATTN: Must figure out during parsing the kind of real number scanned. */
+	sscanf(yytext, "%g", &srplval.floatNumber);
+	return REAL_LITERAL;
+ }
+
+
+{hexaNumber} {
+	unsigned int i, j;
+	char c;
+
+	srplval.integerNumber= 0;
+	if ((i= strlen(yytext)) < 7) {
+	    for (j= 2; j < i; j++) {
+	    	c= yytext[i];
+		srplval.integerNumber+= (unsigned int )((c > '9') ? (toupper(c) - 'A') : (c - '0')) * (1 << (8 * (i - j)));
+	     }
+	 }
+	else {
+	    /* Declare un overflow. */
+	 }
+	return INTEGER_LITERAL;
+ }
+
+
+.                       { return 0; }
+%%
+
+int yywrap(int)
+{
+#ifdef A_FAIRE
+    return (EndInclusion());
+#else
+    return 1;
+#endif
+}
+

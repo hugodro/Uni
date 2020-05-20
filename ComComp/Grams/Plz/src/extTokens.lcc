@@ -1,0 +1,456 @@
+/********************************************************
+* Fichier: extTokens.lcc.
+* Desc: traducteur de mots pour compiler le langage Java.
+* Module: AkraLog : JavaKit.
+* Rev: 20 avril 1996 : REV 0 : Hugo DesRosiers : Creation.
+* $Log$
+********************************************************/
+
+%option yylineno
+%option noyywrap
+%option debug
+%option yyclass="PlDfToker"
+
+%{
+/* On met ici les declaration et les fichiers inclus */
+#include <stdio.h>
+#include <string.h>
+#include <ctype.h>
+
+#include "pldfToker.h"
+
+#include "jvtypes.h"
+#include "precompiler.h"
+
+class JCIdentifier;
+class JCDimIdentifier;
+class JCPackage;
+class JCPackageDeclaration;
+class JCMember;
+class JCReferencedType;
+class JCActionBlock;
+class JCHandlingBlock;
+class JCAction;
+class JCStatement;
+class JCExpression;
+class JCVariableDeclaration;
+class JCType;
+class JCPackageName;
+class TransitionList;
+class JCTransition;
+
+/*** Extension SQL-92. ***/
+class SqlStatementList;
+class JCSqlStatement;
+class JCSqlClause;
+class JCSqlExpression;
+class JCSqlIdentifier;
+class JCSqlIdentList;
+
+
+#include "ntEnums.h"
+
+// Map the usual name to the customized Bison structure.
+#define yylval OGrmlval
+
+/*** Les prototypes de fonctions provenant d'autres modules. ***/
+
+#ifdef A_SUIVRE
+extern char *strdup(char *);
+extern struct PreCompilerMacro *GetMacroNamed(struct PreCompilerMacro *, char *);
+extern void ExpandMacro(struct PreCompiler *, struct PreCompilerMacro *);
+extern int IncludeDirective(void);
+extern int DefineDirective(void);
+extern int IfdefDirective(void);
+extern int IfNdefDirective(void);
+extern int elseDirective(void);
+extern int EndifDirective(void);
+extern int IfDirective(void);
+extern int ElifDirective(void);
+extern int UndefDirective(void);
+#endif
+
+
+%}
+
+
+alpha   [a-zA-Z]
+digit   [0-9]
+hexa [0-9a-fA-F]
+special [\_]
+ident   (({alpha}|{special})({alpha}|{digit}|{special})*)
+integer     ({digit}+[lL]?)
+exp     ([Ee][-+]?{digit}+)
+float   ((({digit}+\.?)|(\.{digit}+)){digit}*{exp}?[fFdD]?)
+timenum ({digit}+[YMDhmstun])
+timeval ({timenum}+)
+hexaNumber (0x{hexa}+)
+newlineCR (\r)
+newlineLF (\n)
+newlineMIX ({newlineCR}{newlineLF})
+newline ({newlineMIX}|{newlineCR}|{newlineLF})
+
+
+/* --------------- Debut des definitions de mots --------------- */
+
+%%
+[\ \t\f]+   {;}
+{newline}[\ ]*#		{ PreCompDirective(); }
+{newline}	        { ; }
+
+"/*"            { PasseCommentaire1(); }
+"//"            { PasseCommentaire2(); }
+
+"@"		{ return '@'; }
+">="		{ return GE_KW; }
+"<="		{ return LE_KW; }
+"!="		{ return NE_KW; }		/* NE pour le C. */
+"<>"		{ return NE_KW; }	/* NE pour le SQL. */
+"=="		{ return EQ_KW; }
+
+"<<"		{ return LS_KW; }
+">>>"	{ return URS_KW; }
+">>"		{ return RS_KW; }
+"++"		{ return ICR_KW; }
+"--"		{ return DECR_KW; }
+"&&"	{ return ANDAND_KW; }
+"||"            { return OROR_KW; }
+"+="		{ return PLUSASSIGN_KW;}
+"-="		{ return MINUSASSIGN_KW;}
+"*="		{ return TIMEASSIGN_KW;}
+"/="		{ return DIVIDEASSIGN_KW;}
+"&="		{ return ANDASSIGN_KW;}
+"|="		{ return ORASSIGN_KW;}
+"^="		{ return NOTASSIGN_KW;}
+"%="	{ return MODASSIGN_KW;}
+"<<="	{ return LSASSIGN_KW;}
+">>="	{ return RSASSIGN_KW;}
+">>>="	{ return URSASSIGN_KW;}
+
+
+
+"("             { return '('; }
+","             { return ','; }
+")"             { return ')'; }
+";"             { return ';'; }
+"{"             { return '{'; }
+"}"             { return '}'; }
+"["             { return '['; }
+"]"             { return ']'; }
+"*"             { return '*'; }
+"/"             { return '/'; }
+"+"             { return '+'; }
+"-"             { return '-'; }
+"%"             { return '%'; }
+"^"             { return '^'; }
+"&"             { return '&'; }
+"|"		{ return '|'; }
+"`"		{ return '`'; }
+"?"             { return '?'; }
+":"             { return ':'; }
+"!"             { return '!'; }
+"."             { return '.'; }
+"~"             { return '~'; }
+"<"             { return '<'; }
+">"             { return '>'; }
+"="             { return '='; }
+
+true {
+	yylval.boolValue= 1;
+	return LITERAL_BOOLEAN;
+ }
+
+false {
+	yylval.boolValue= 0;
+	return LITERAL_BOOLEAN;
+ }
+
+\' {
+    unsigned int i;
+    char *tmpStr= StrBuffer, c;
+    
+    i= 0;
+    do {
+    	if ((*tmpStr++= input()) == '\'') {
+	    if ((c= input()) != '\'') {
+	    	unput(c);
+		*(tmpStr-1)= '\0';
+		break;
+	     }
+	 }
+	else {
+	    if (*(tmpStr-1) == 0) {	/* Encountered EOF inside the char sequence. */
+		ShowCompilerMessage(11, NULL, (char *)0);
+		break;
+	     }
+	    else if ((i++ > 4) && (isInSubset != 2)) {	/* Long char while not in SQL scanning mode. */
+		ShowCompilerMessage(12, NULL,  (char *)0);
+		break;
+	     }
+	 }
+     } while(1);
+    yylval.string= wstrdup(StrBuffer);	// ATTN-980522 [HD]: Must review if wide chars are worthy !!
+    return LITERAL_CHAR;
+}
+
+
+{ident} {
+    struct PreCompiler *cppInfo;
+    struct PreCompilerMacro *macro;
+    int tokenID;
+
+#ifdef A_FAIRE
+    if ((macro= GetMacroNamed(cppInfo->macroDefinitions, yytext)) != NULL) {
+	ExpandMacro(cppInfo, macro);
+     } else
+#endif
+
+    if ((tokenID= GetTokenID(yytext)) != -1) {
+	return tokenID;
+     }
+    else {
+/*
+	yylval.string= (wchar *)strdup(yytext);
+*/
+	yylval.string= (wchar *)yytext;
+	return IDENTIFIER_KW;
+     }
+
+}
+
+
+{integer} {
+	unsigned int i, result;
+
+	i= strlen(yytext) - 1;
+	if ((yytext[i]== 'l') || (yytext[i] == 'L')) {
+	    yylval.longNumber[0]= atoi(yytext);
+	    result= LITERAL_LONG;
+	 }
+	else {
+	    yylval.integerNumber= atoi(yytext);
+	    result= LITERAL_INT;
+	 }
+	return result;
+}
+
+
+{float} {
+/* ATTENTION: Doit traiter le type de float trouve (simple ou double). */
+	sscanf(yytext, "%g", &yylval.floatNumber);
+	return LITERAL_FLOAT;
+ }
+
+
+{hexaNumber} {
+	unsigned int i, j;
+	wchar c;
+
+	yylval.integerNumber= 0;
+	if ((i= strlen(yytext)) < 7) {
+	    for (j= 2; j < i; j++) {
+	    	c= yytext[i];
+		yylval.integerNumber+= (unsigned int )((c > '9') ? (toupper(c) - 'A') : (c - '0')) * (1 << (8 * (i - j)));
+	     }
+	 }
+	else {
+	    /* Declare un overflow. */
+	 }
+	return LITERAL_INT;
+ }
+
+
+{timeval} {
+/*** Extensions PLZEN. ***/
+	    yylval.integerNumber= 0;	/* TMP */
+	    return LITERAL_TIME;
+ }
+
+
+\" {
+    unsigned int i, k, escapeIndex;
+    unsigned int escChar[4];
+    int j;
+    char *tmpStr= StrBuffer, c, currentChar;
+    bool escapeMode, unicodeSequence;
+    
+    i= 0;
+    escapeMode= FALSE;
+    unicodeSequence= FALSE;
+    do {
+	currentChar= input();
+	if (currentChar == 0) {
+	    ShowCompilerMessage(11, NULL, (char *)0);
+	    break;
+	}
+	if (i++ > 1023) {
+	    ShowCompilerMessage(12, NULL,  (char *)0);
+	    break;
+	}
+
+	if (currentChar == '\\') {
+	    if (escapeMode && !unicodeSequence && (escapeIndex == 0)) {    /* A double backslash sequence. */
+		escapeMode= FALSE;
+		*tmpStr++= '\\';
+	    }
+	    else if (escapeMode) {    /* Short escape sequence. */
+		*tmpStr= '\0';
+		if (unicodeSequence) {
+		    unicodeSequence= FALSE;
+		    if (escapeIndex == 0) {
+			// TODO: Handle error.
+		    }
+		    else {
+			for (k= 0, j= escapeIndex - 1; j >= 0;) {
+			    *tmpStr|= (unsigned char)(escChar[j] << (4 * (escapeIndex - j - 1)));
+			    j--;
+			    k++;
+			    if (k == 2) {
+				tmpStr++;
+			    }
+			}
+			tmpStr++;
+		    }
+		}
+		else {
+		    for (j= escapeIndex - 1; j >= 0;) {
+			    *tmpStr|= (unsigned char)(escChar[j] << (3 * (escapeIndex - j - 1)));
+			j--;
+		    }
+		    tmpStr++;
+		}
+		escapeIndex= 0;
+	    }
+	    else {    		/* Beginning of an escape sequence. */
+		escapeMode= TRUE;
+		unicodeSequence= FALSE;
+		escapeIndex= 0;
+	    }
+	    continue;
+	}
+
+	if (escapeMode) {
+	    if ((currentChar >= '0') && (currentChar <= '9')) {
+		escChar[escapeIndex++]= (unsigned int)(currentChar - '0');
+	    }
+	    else if ((currentChar >= 'A') && (currentChar <= 'F')) {
+		escChar[escapeIndex++]= (unsigned int)(currentChar - 'A');
+	    }
+	    else if ((currentChar >= 'a') && (currentChar <= 'f')) {
+		escChar[escapeIndex++]= (unsigned int)(currentChar - 'a');
+	    }
+	    else if (currentChar == 'u') {
+		if (escapeIndex == 0) unicodeSequence= TRUE;
+		else {
+		    // TODO: Handle error.
+		}
+	    }
+	    else {
+		if (!unicodeSequence) {
+		    if (escapeIndex == 0) {	/* A special escape character. */
+			switch(currentChar) {
+			    case 'n':
+				*tmpStr++= '\n';	/* Ascii 10. */
+				break;
+			    case 'r':
+				*tmpStr++= '\r';	/* Ascii 13. */
+				break;
+			    case 't':
+				*tmpStr++= '\t';	/* Ascii 8. */
+				break;
+			    case '"':
+				*tmpStr++= '"';
+				break;
+			    default:
+				// TODO: Handle error.
+				break;
+			}
+		    }
+		    else if (escapeIndex == 1) {	/* A confusing backslash sequence. */
+			switch((char)escChar[0]) {
+			    case 0:
+				*tmpStr++= '\0';	/* Ascii 0. */
+				break;
+			    case 11:			/* Ascii 32. */
+				*tmpStr++= ' ';
+				break;
+			    case 15:			/* Ascii 12. */
+				*tmpStr++= (char)12;
+				break;
+			    default:
+				// TODO: Handle error.
+				break;
+			}
+			*tmpStr++= currentChar;
+			if (currentChar == '"') {
+			    if ((c= input()) != '"') {
+				unput(c);
+				*tmpStr= '\0';
+				break;
+			    }
+			}
+		    }
+		    else {		/* A bad character occuring in a sequence of octal characters. */
+			// TODO: Handle error.
+		    }
+		}
+		else {	/* A bad character in a sequence of hexa chars. */
+		    // TODO: Handle error.
+		}
+		escapeMode= FALSE;
+		continue;
+	    }
+	    if (unicodeSequence && (escapeIndex == 4)) {
+		for (k= 0, j= escapeIndex-1; j >= 0;) {
+		    *tmpStr|= (unsigned char)(escChar[j] << (4 * (escapeIndex - j - 1)));
+		    j--;
+		    k++;
+		    if (k == 2) {
+			tmpStr++;
+		    }
+		}
+		tmpStr++;
+		escapeMode= FALSE;
+	    }
+	    else if (!unicodeSequence && (escapeIndex == 3)) {
+		for (j= escapeIndex-1; j >= 0;) {
+			*tmpStr|= (unsigned char)(escChar[j] << (3 * (escapeIndex - j - 1)));
+		    j--;
+		}
+		tmpStr++;
+		escapeMode= FALSE;
+	    }
+	}
+	else {	/* Not an escaped character. */
+	    if (currentChar == '"') {
+		if ((c= input()) != '"') {
+		    unput(c);
+		    *tmpStr= '\0';
+		    break;
+		}
+	    }
+	    *tmpStr++= currentChar;
+	}
+     } while(1);
+/* MOD-970821 [HD]: Took off wide-string utilization for now.
+    yylval.string= wstrdup(StrBuffer);
+*/
+    yylval.string= (wchar *)StrBuffer;
+    return LITERAL_STRING;
+}
+
+.                       { return 0; }
+%%
+
+/* --------------- Debut des definitions de mots --------------- */
+
+int yywrap()
+{
+#ifdef A_FAIRE
+    return (EndInclusion());
+#else
+    return 1;
+#endif
+}
+
+

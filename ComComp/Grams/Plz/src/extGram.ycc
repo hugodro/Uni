@@ -1,0 +1,3081 @@
+/******************************************************************************
+* Fichier: jvgram.y
+* Desc: grammaire en yacc pour compiler le langage Java.
+* Module: AkraLog : JavaKit.
+* Revision: 20 avril 1996 : REV 0 : Hugo DesRosiers : Creation.
+******************************************************************************/
+
+%{
+/* On met ici les declaration et les fichiers inclus */
+
+#include <stdio.h>
+#include <stdlib.h>
+
+#include "syntaxEngine.h"
+
+
+extern int Plzlex();
+extern void Plzerror(char *);
+
+extern SyntaxEngine *seng;
+
+#define YYDEBUG	1
+
+#if defined (_WIN32)
+#include <malloc.h>
+#endif
+
+%}
+
+
+/**************************************************************
+* Keywords of the language, and other meta-characters.
+**************************************************************/
+
+
+/**************************************************************
+* Literal values.
+**************************************************************/
+
+%token BOOLEAN_LITERAL
+%token CHAR_LITERAL
+%token DOUBLE_LITERAL
+%token FLOAT_LITERAL
+%token INT_LITERAL
+%token LONG_LITERAL
+%token STRING_LITERAL
+
+
+/**************************************************************
+* Operators
+**************************************************************/
+%token ANDAND_KW
+%token DECR_KW
+
+
+/*************************************************************
+* Operators and assignment.
+**************************************************************/
+%token ANDASSIGN_OP
+%token DIVIDEASSIGN_OP
+%token LSASSIGN_OP
+%token LS_OP
+%token MINUSASSIGN_OP
+%token MODASSIGN_OP
+%token EQ_OP
+%token GE_OP
+%token LE_OP
+%token ICR_OP
+%token NE_OP
+%token NOTASSIGN_OP
+%token ORASSIGN_OP
+%token OROR_OP
+%token PLUSASSIGN_OP
+%token RSASSIGN_OP
+%token RS_OP
+%token TIMEASSIGN_OP
+%token URS_OP
+%token URSASSIGN_OP
+
+
+/*************************************************************
+* Keywords..
+**************************************************************/
+%token ABSTRACT_KW
+%token BOOLEAN_KW
+%token BREAK_KW
+%token BYTE_KW
+%token BYVALUE_KW
+%token CASE_KW
+%token CAST_KW
+%token CATCH_KW
+%token CHAR_KW
+%token CLASS_KW
+%token CONST_KW
+%token CONTINUE_KW
+%token DEFAULT_KW
+%token DOUBLE_KW
+%token DO_KW
+%token ELSE_KW
+%token EXTENDS_KW
+%token FINALLY_KW
+%token FINAL_KW
+%token FLOAT_KW
+%token FOR_KW
+%token FUTURE_KW
+%token GENERIC_KW
+%token GOTO_KW
+%token IF_KW
+%token IMPLEMENTS_KW
+%token IMPORT_KW
+%token IDENTIFIER_KW
+%token INNER_KW
+%token INSTANCEOF_KW
+%token INTERFACE_KW
+%token INT_KW
+%token LONG_KW
+%token NATIVE_KW
+%token NEW_KW
+%token NULL_KW
+%token OPERATOR_KW
+%token OUTER_KW
+%token PACKAGE_KW
+%token PRIVATE_KW
+%token PROTECTED_KW
+%token PUBLIC_KW
+%token REST_KW
+%token RETURN_KW
+%token SHORT_KW
+%token STATIC_KW
+%token SUPER_KW
+%token SWITCH_KW
+%token SYNCHRONIZED_KW
+%token THIS_KW
+%token THROW_KW
+%token THROWS_KW
+%token TRANSIENT_KW
+%token TRY_KW
+%token VAR_KW
+%token VOID_KW
+%token VOLATILE_KW
+%token WHILE_KW
+
+/*** Extensions PLZEN. ***/
+%token BLOCKING_KW
+%token CONSUME_KW
+%token CRITICAL_KW
+%token FIRE_KW
+%token IMMEDIATE_KW
+%token IMPLICIT_KW
+%token TIME_LITERAL
+%token ON_KW
+%token PARALLEL_KW
+%token PASSBY_KW
+%token POP_KW
+%token PUSH_KW
+%token STATE_KW
+%token TRANSITION_KW
+
+
+/*** Extensions SQL-92. ***/
+
+%token DOSQL_KW
+%token DECLARESQL_KW
+%token ABSOLUTE_KW
+%token ALL_KW
+%token AND_KW
+%token ANY_KW
+%token AS_KW,
+%token ASC_KW
+%token AVG_KW
+%token BETWEEN_KW
+%token BIT_LENGTH_KW
+%token BOTH_KW
+%token BY_KW
+%token CHARACTER_LENGTH_KW
+%token CHAR_LENGTH_KW
+%token CLOSE_KW
+%token COLLATE_KW
+%token COMMIT_KW
+%token CONVERT_KW
+%token CORRESPONDING_KW
+%token COUNT_KW,
+%token CROSS_KW
+%token CURRENT_KW
+%token CURRENT_U_KW
+%token DELETE_KW
+%token DESC_KW
+%token DISTINCT_KW
+%token ESCAPE_KW
+%token EXCEPT_KW
+%token EXISTS_KW
+%token EXTRACT_KW
+%token FALSE_KW
+%token FETCH_KW
+%token FIRST_KW
+%token FOR_KW
+%token FROM_KW
+%token FULL_KW
+%token GROUP_KW
+%token HAVING_KW
+%token IN_KW
+%token INDICATOR_KW
+%token INSERT_KW
+%token INTERSECT_KW
+%token INTO_KW
+%token IS_KW
+%token JOIN_KW
+%token LAST_KW
+%token LEADING_KW
+%token LEFT_KW
+%token LIKE_KW
+%token LOWER_KW
+%token MATCH_KW
+%token MAX_KW
+%token MIN_KW
+%token MODULE_KW
+%token NATURAL_KW
+%token NEXT_KW
+%token NOT_KW
+%token NULL_KW
+%token OCTET_LENGTH_KW
+%token OF_KW
+%token OPEN_KW
+%token OR_KW
+%token ORDER_KW
+%token OUTER_KW
+%token OVERLAPS_KW
+%token PARTIAL_KW
+%token POSITION_KW
+%token PRIOR_KW
+%token RELATIVE_KW
+%token RIGHT_KW
+%token ROLLBACK_KW
+%token SELECT_KW
+%token SESSION_U_KW
+%token SET_KW
+%token SOME_KW
+%token SUBSTRING_KW
+%token SUM_KW
+%token SYSTEM_U_KW
+%token TABLE_KW
+%token TRAILING_KW
+%token TRANSLATE_KW
+%token TRIM_KW
+%token TRUE_KW
+%token UNION_KW
+%token UNIQUE_KW
+%token UNKNOWN_KW
+%token UPDATE_KW
+%token UPPER_KW
+%token USER_KW
+%token USING_KW
+%token VALUE_KW
+%token VALUES_KW
+%token WHERE_KW
+%token WORK_KW
+
+
+/****************************************************************
+* Container for all elements produced during parsing.
+****************************************************************/
+
+%union
+{
+    bool boolValue;
+    wchar *string;
+    int	 integerNumber;
+    unsigned int flag;
+    float floatNumber;
+    int longNumber[2];
+    double doubleNumber;
+}
+
+/****************************************************************
+* Section: Typing of the objects returned by the non-terminals.
+****************************************************************/
+
+%type <string> IDENTIFIER_KW
+
+%type <boolValue> BOOLEAN_LITERAL
+%type <string> CHAR_LITERAL
+%type <floatNumber> FLOAT_LITERAL
+%type <doubleNumber> DOUBLE_LITERAL
+%type <integerNumber> INT_LITERAL
+%type <longNumber> LONG_LITERAL
+%type <string> STRING_LITERAL
+
+/*** Extensions PLZEN. ***/
+%type <integerNumber> TIME_LITERAL
+%type <integerNumber> TransitionModifiers.Opt TransitionModifiers TransitionModifier
+%type <integerNumber> TransitionSkip DestinationModifier.Opt
+
+
+/*** Extensions SQL-92. ***/
+%type <flag> sql92.TruthValue sql92.NotOpt
+%type <flag> sql92.SetQuantifier
+%type <flag> sql92.SortDirectionOpt sql92.SortDirection
+%type <flag> sql92.CompOp
+%type <flag> sql92.MatchModeOpt
+%type <flag> sql92.UniqueOpt
+%type <flag> sql92.FullOpt
+%type <flag> sql92.Quantifier
+%type <flag> sql92.AllOpt
+%type <flag> SqlStatementAction
+
+
+%left ';'
+%left '='
+%left '(' ')'
+%left ','
+%left '?'
+%left '|'
+%left '^'
+%left '&'
+%left EQ_KW NE_KW
+%left '>' '<' GE_KW LE_KW 
+/*
+%left '>' '<' '=' GE_KW LE_KW NE_KW
+*/
+%left URS_KW RS_KW LS_KW
+%right  '~'
+%left '+' '-'
+%left '*' '/' '%'
+%left '.'
+
+
+/*** Extensions SQL-92. ***/
+%left WHERE_KW
+%left OR_KW
+%left AND_KW
+
+%start CompilationUnit
+
+/* --------------- Debut de la grammaire --------------- */
+%%
+
+/* Compilation Unit. */
+CompilationUnit:
+    /* Nothing */
+    | UnitList
+
+UnitList:
+    UnitComponent
+    | UnitList UnitComponent
+
+UnitComponent:
+    PackageStatement
+    | ImportStatements
+    {
+    }
+    | TypeDeclaration
+    {
+    }
+
+/* Packages. */
+
+PackageStatement:
+    PACKAGE_KW
+    {
+      seng->packageStmt(0);
+      }
+    PackageName ';'
+    {
+      seng->packageStmt(1);
+     }
+
+
+PackageName:
+    Identifier
+    {
+      seng->pushIdentifier($1);
+     }
+    | PackageName '.' Identifier
+    {
+      seng->pushIdentifier($3);
+     }
+
+
+/* Import Statements. */
+
+ImportStatements:
+    IMPORT_KW
+    {
+      seng->importStmt(0);
+     }
+    ImportBody
+    {
+      seng->importStmt(1);
+     }
+
+
+ImportBody:
+    PackageName ';'
+    |  TypeImportOnDemandStatement
+
+
+/*  Never happens, since we don't know how many components a package name can have.
+TypeImportStatement:
+    PackageName '.' Identifier ';'
+*/
+
+
+TypeImportOnDemandStatement:
+    PackageName '.' '*' ';'
+    {
+      seng->pushSpecialIdent(Identifier::star);
+    }
+
+
+/*
+TypeDeclarations:
+    TypeDeclaration
+    | TypeDeclarations  TypeDeclaration
+*/
+
+TypeDeclaration:
+    ClassModifiers TypeDeclarationBody
+    {
+      seng->closeType();
+     }
+    |  TypeDeclarationBody
+   {
+      seng->closeType();
+     }
+
+
+TypeDeclarationBody:
+    ClassDeclaration
+    |  InterfaceDeclaration
+
+
+/* Class Declarations. */
+
+ClassDeclaration:
+   CLASS_KW Identifier SuperClass Interface ClassBody
+    {
+     }
+
+
+SuperClass:
+    /* Optional. */
+    {
+     }
+    |  EXTENDS_KW TypeName
+    {
+     }
+
+
+Interface:
+    /* Optional. */
+    {
+     }
+    |  IMPLEMENTS_KW TypeNameList
+    {
+     }
+
+
+ClassBody:
+    '{' FieldDeclarations.Opt '}'
+    {
+     }
+
+
+/* Field Declarations. */
+
+LimitedFieldDeclarations:
+    LimitedFieldDeclaration
+    {
+     }
+    |  LimitedFieldDeclarations LimitedFieldDeclaration
+    {
+     }
+
+
+FieldDeclarations.Opt:
+    /* Optional. */
+    {
+     }
+    |  FieldDeclarations
+    {
+     }
+
+
+FieldDeclarations:
+    FieldDeclaration
+    {
+     }
+    |  FieldDeclarations FieldDeclaration
+    {
+     }
+
+/* ATTENTION: Doit trouver comment discerner entre une methode normale et
+	un constructeur.  Ca semble etre la seule source de confusion qui reste dans
+	la grammaire.
+*/
+
+
+FieldDeclaration:
+    LimitedFieldDeclaration
+    {
+     }
+    |  StaticInitializer
+    {
+     }
+
+
+LimitedFieldDeclaration:
+/* JUNK:
+    FieldVariableDeclaration ';'
+    |  MethodDeclaration
+*/
+    MethodModifiers.Opt ResultType MethodOrFieldVarDeclaration
+    {
+    }
+/*** Extension PLZEN. ***/
+  |  MethodModifiers.Opt StateMember
+  {
+  }
+
+/* JUNK:
+    | MethodOrFieldVarDeclaration
+*/
+
+MethodOrFieldVarDeclaration:
+    VariableDeclarators ';'
+    {
+     }
+    |  MethodDeclarator Throws.Opt MethodBody
+    { 
+     }
+    | ConstructorDeclarator Throws.Opt ConstructorBody
+    {
+     }
+
+
+/* JUNK:
+FieldVariableDeclaration:
+    VariableModifiers Type VariableDeclarators
+    |  Type VariableDeclarators
+*/
+
+VariableDeclarators:
+    VariableDeclarator
+    {
+     }
+    |  VariableDeclarators ',' VariableDeclarator
+    {
+     }
+
+VariableDeclarator:
+    DeclaratorName
+    {
+     }
+    |  DeclaratorName '=' VariableInitializer
+    {
+     }
+
+/*
+DeclaratorName:
+    Identifier Dims
+*/
+
+DeclaratorName:
+    Identifier Dims.Opt
+    {
+     }
+
+/* DeclaratorName is a simplification of the following:
+    Identifier
+     |  DeclaratorName '[' ']'
+*/
+
+
+VariableInitializer:
+    Expression
+    {
+     }
+    |  ArrayInitializer
+    {
+     }
+/*
+    |  '{' ArrayInitializers '}'	/ ATTENTION: Il y a une virgule optionelle dans le texte. /
+
+ArrayInitializers:
+    VariableInitializer
+    |  ArrayInitializers ','
+*/
+
+/* Method Declarations. */
+
+/* JUNK:
+MethodDeclaration:
+    ResultType MethodDeclarator Throws.Opt MethodBody
+    |  MethodModifiers  ResultType MethodDeclarator Throws.Opt MethodBody
+*/
+
+ResultType:
+    Type
+    {
+     }
+    |  VOID_KW
+    {
+     }
+
+
+MethodDeclarator:
+    Identifier '(' ParameterList.Opt ')' Dims.Opt
+    {
+     }
+
+
+/* MOD-960606 [HD]:  Replaced this version using DeclaratorName by one with an Identifier.
+    DeclaratorName '(' ParameterList.Opt ')' Dims.Opt
+*/
+/* MethodDeclarator is now a simplification of the following.
+    DeclaratorName '(' ParameterList.Opt ')'
+    | MethodDeclarator '[' ']'
+*/
+
+
+ParameterList.Opt:
+    {
+     }
+    | ParameterList
+    {
+     }
+
+ParameterList:
+    Parameter
+    {
+     }
+    |  ParameterList ',' Parameter
+    {
+     }
+
+Parameter:
+    Type DeclaratorName
+    {
+     }
+
+Throws.Opt:
+    /* Optional. */
+    {
+     }
+    |  THROWS_KW TypeNameList
+    {
+     }
+
+TypeNameList:
+    TypeName
+    {
+     }
+    |  TypeNameList ',' TypeName
+    {
+     }
+
+
+MethodBody:
+    Block
+    {
+     }
+    |  ';'
+    {
+     }
+
+/* Constructor Method Declarations. */
+
+/* JUNK:
+ConstructorDeclaration:
+    ConstructorModifiers ConstructorDeclarator Throws.Opt ConstructorBody
+    | ConstructorDeclarator Throws.Opt ConstructorBody
+
+ConstructorDeclaration:
+    MethodModifiers.Opt ConstructorDeclarator Throws.Opt ConstructorBody
+    { fprintf(stderr, "> Constructor Method Declaration OK.\n"); }
+
+ConstructorDeclarator:
+    TypeName '(' ParameterList.Opt ')'
+    {
+	fprintf(stderr, "Ne fait rien pour le moment.\n");
+     }
+
+*/
+
+ConstructorDeclarator:
+    '(' ParameterList.Opt ')'
+    {
+      }
+
+ConstructorBody:
+    '{'
+    ExplicitConstructorCallStatement.Opt LocalVariableDeclarationAndStatements.Opt '}'
+    {
+     }
+
+ExplicitConstructorCallStatement.Opt:
+    /* Optional. */
+    {
+     }
+    | ExplicitConstructorCallStatement
+    {
+     }
+
+ExplicitConstructorCallStatement:
+    ThisOrSuper '(' ArgumentList.Opt ')' ';'
+    {
+     }
+
+
+ThisOrSuper:
+    THIS_KW
+    {
+     }
+    |  SUPER_KW
+    {
+     }
+
+
+/* Class Loading and Initialization. */
+
+StaticInitializer:
+    STATIC_KW Block
+    {
+     }
+
+
+/* Interface Declarations. */
+InterfaceDeclaration:
+    INTERFACE_KW Identifier
+    {
+     }
+    ExtendsInterface.Opt InterfaceBody
+    {
+     }
+
+ExtendsInterface.Opt:
+    /* Optional. */
+    {
+     }
+    |  ExtendsInterface
+    {
+     }
+
+
+ExtendsInterface:
+    EXTENDS_KW TypeNameList
+    {
+     }
+
+/*
+    | ExtendsInterface ',' TypeName
+*/
+
+InterfaceBody:
+    '{' LimitedFieldDeclarations '}'
+    {
+     }
+
+
+/* Array Initialization (est-ce different de la VariableInitializer ?). */
+ArrayInitializer:
+    '{' ElementInitializers.Opt '}'	/* ATTENTION: Une virgule optionelle est dans le texte. */
+    {
+     }
+
+ElementInitializers.Opt:
+    /* Optional. */
+    {
+     }
+    | ElementInitializers
+    {
+     }
+
+ElementInitializers:
+    VariableInitializer
+    {
+     }
+    |  ElementInitializers ',' VariableInitializer
+    {
+     }
+
+/*
+    Element
+    |  ElementInitializers ',' Element
+
+Element:
+    Expression
+    |  ArrayInitializer
+*/
+
+
+/* Blocks and Statements. */
+
+Block:
+    '{' 
+    {
+     }
+    LocalVariableDeclarationAndStatements
+     '}'
+    {
+     }
+    | '{'
+     {
+     }
+    '}'
+    {
+     }
+
+LocalVariableDeclarationAndStatements.Opt:
+    /* Optional. */
+    {
+     }
+    | LocalVariableDeclarationAndStatements
+
+LocalVariableDeclarationAndStatements:
+    LocalVariableDeclarationOrStatement
+    {
+     }
+    |  LocalVariableDeclarationAndStatements LocalVariableDeclarationOrStatement
+    {
+     }
+
+LocalVariableDeclarationOrStatement:
+    LocalVariableDeclarationStatement
+    {
+     }
+    | Statement
+    {
+     }
+    | error ';'
+    {
+    }
+
+LocalVariableDeclarationStatement:
+    Type
+     {
+     }
+    VariableDeclarators ';'
+    {
+     }
+
+
+Statement:
+    EmptyStatement
+    {
+     }
+    |  LabeledStatement
+    {
+     }
+    | ExpressionStatement ';'
+    {
+     }
+    |  SelectionStatement
+    {
+     }
+    |  IterationStatement
+    {
+     }
+    |  JumpStatement
+    {
+     }
+    |  GuardingStatement
+    {
+     }
+    | Block
+    {
+     }
+
+/*** Extension PLZEN ***/
+    | CriticalStatement
+    {
+     }
+    | FireStatement
+    {
+     }
+/*** Extension SQL-92 ***/
+    | EmbeddedSqlStatement ';'
+
+EmbeddedSqlStatement:
+    SqlStatementAction Receiver.Opt
+    {
+    }
+    ActualSqlPart
+    {
+    }
+
+
+ActualSqlPart:
+    sql92.SingleStatement
+    {
+    }
+  | '{' sql92.ProcedureStatementList '}'
+    {
+    }
+
+
+SqlStatementAction:
+    DOSQL_KW
+    {
+    }
+  | DECLARESQL_KW
+    {
+    }
+
+
+EmptyStatement:
+	';'
+    {
+     }
+
+
+LabeledStatement:
+    Identifier ':' 
+     {
+	compiler->pushLineNumber();
+     }
+    Statement
+    {
+     }
+    |  CASE_KW
+     {
+     }
+    Expression ':' LocalVariableDeclarationOrStatement
+	/* MOD-960613 [HD]: Modifie pour supporter la declaration de 'vars' dans les case.
+	   Remplace 'Statement' par 'LocalVariableDeclarationOrStatement'. */
+    {
+     }
+    |  DEFAULT_KW 
+     {
+     }
+    ':' LocalVariableDeclarationOrStatement
+	/* MOD-960613 [HD]: Modifie pour supporter la declaration de 'vars' dans les case. 
+	   Remplace 'Statement' par 'LocalVariableDeclarationOrStatement'. */
+    {
+     }
+
+ExpressionStatement:
+    Assignment
+    {
+     }
+    |  PreIncrement
+    {
+     }
+    |  PreDecrement
+    {
+     }
+    |  PostIncrement
+    {
+     }
+    |  PostDecrement
+    {
+     }
+    |  MethodCall
+    {
+     }
+    |  AllocationExpression
+    {
+     }
+
+IfHeadStatement:
+    IF_KW
+     {
+     }
+    '(' Expression ')' Statement
+    {
+     }
+
+
+ElseStatement.Opt:
+	/* Optional. */
+    {
+    }
+    | ELSE_KW Statement
+    {
+    }
+
+SelectionStatement:
+    IfHeadStatement ElseStatement.Opt
+    {
+    }
+
+/*  OUTDATED_CODE:
+    IF_KW
+     {
+     }
+    '(' Expression ')' Statement
+    {
+     }
+    |  IF_KW
+     {
+     }
+    '(' Expression ')' Statement ELSE_KW Statement
+    {
+     }
+*/
+    |  SWITCH_KW
+     {
+     }
+    '(' Expression ')'
+    {
+    }
+    Block
+    {
+     }
+
+
+IterationStatement:
+    WHILE_KW
+     {
+     }
+    '(' Expression ')'
+	Statement
+	{
+	    }
+    |  DO_KW 
+	{
+	}
+	Statement 
+	{
+	}
+	WHILE_KW '(' Expression ')' ';'
+	{
+	    }
+    |  FOR_KW '(' 
+	ForInit  Expression.Opt ';' ForIncrOpt ')'
+	Statement
+	{
+	}
+
+
+ForInit:
+    ExpressionStatements ';'
+    {
+     }
+    |  LocalVariableDeclarationStatement
+    {
+     }
+    | ';'
+    {
+     }
+
+
+ForIncrOpt:
+    /* Optional. */
+    {
+     }
+    |  ExpressionStatements
+    {
+     }
+
+ExpressionStatements:
+    ExpressionStatement
+    {
+     }
+    |  ExpressionStatements ',' ExpressionStatement
+    {
+     }
+
+JumpStatement:
+    BREAK_KW IdentifierOpt ';'
+    {
+     }
+    |  CONTINUE_KW IdentifierOpt ';'
+    {
+     }
+    |  RETURN_KW
+     {
+     }
+    Expression.Opt ';'
+    {
+     }
+    |  THROW_KW
+     {
+     }
+    Expression ';'
+    {
+     }
+
+
+TryHeadStatement:
+    TRY_KW
+    {
+    }
+    Block
+    {
+    }
+
+GuardingStatement:
+    SYNCHRONIZED_KW
+     {
+     }
+    '(' Expression ')' Statement
+    {
+     }
+    |
+/*
+  TRY_KW
+     {
+     }
+    Block
+*/
+    TryHeadStatement Finally
+    {
+     }
+    |  TryHeadStatement Catches
+    {
+     }
+    |  TryHeadStatement Catches Finally
+    {
+     }
+
+
+Catches:
+    Catch
+    {
+     }
+    |  Catches Catch
+    {
+     }
+
+Catch:
+/* ATTENTION: Mis Parameter a la place de Argument (qui n'existe pas). */
+    CATCH_KW
+     {
+     }
+    '(' Parameter ')' Block
+    {
+     }
+
+
+Finally:
+    FINALLY_KW Block
+    {
+     }
+
+
+/* Expressions. */
+
+Expression.Opt:
+    /* Optional. */
+    {
+     }
+    |  Expression
+    {
+     }
+
+
+Expression:
+/* ATTENTION: 'Expression' could be simplified to 'AssignmentExpression'. */
+    AssignmentExpression
+    {
+     }
+
+
+FieldAccess:
+    PrimaryExpression '.' Identifier
+    {
+     }
+
+
+
+ComplexPrimary:
+/* TEST-960614 [HD]: Inverse l'ordre d'apparition de FieldAccess (apres ArrayAccess). */
+/* MOD-961201 [HD]: Ajoute ParenthisedName: ajoute 1 s/r, mais corrige le probleme de casting. */
+    FieldAccess
+    {
+     }
+    | Literal
+    {
+     }
+    |  ArrayAccess
+    {
+     }
+    |  MethodCall
+    {
+     }
+    | ParenthisedName
+    {
+     }
+    | '(' Expression ')'
+    {
+    }
+
+
+ParenthisedName:
+    '(' Name ')'
+    {
+    }
+
+
+NotJustName:
+/* TEST-960614 [HD]: Inverse l'ordre d'apparition. */
+   ComplexPrimary
+    {
+     }
+    |   AllocationExpression
+    {
+     }
+
+
+PrimaryExpression:
+/* TEST-960614 [HD]: Remplace le 'Name' avec un 'Ident' pour essayer d'avoir acces au FieldAcces: genere 3 reduce/reduce, empeche les constructeurs. */
+    Name
+    {
+     }
+   |  NotJustName
+    {
+     }
+
+
+QualifiedName:
+    Identifier
+    {
+     }
+    |  QualifiedName '.' Identifier
+    {
+     }
+
+Name:
+    QualifiedName
+    {
+     }
+    |  THIS_KW
+    {
+     }
+    |  SUPER_KW
+    {
+     }
+    |  NULL_KW
+    {
+     }
+
+NameArrayStart:
+    Name '['
+    {
+    }
+
+
+TypeName:
+/* TEST-960614 [HD]: Essaie de resoudre les shift/reduce conflicts, remplace
+	QualifiedName par Name.
+*/
+    Name
+    {
+     }
+    /* ATTENTION: Should contain also 'TypeKeyword'. */
+
+
+ArrayAccess:
+    NameArrayStart Expression ']'
+    {
+     }
+    |  ComplexPrimary '[' Expression ']'
+    {
+     }
+
+
+/* Method Calls. */
+
+MethodCall:
+    MethodAccess '(' ArgumentList.Opt ')'
+    {
+     }
+
+
+MethodAccess:
+    Name
+    {
+     }
+    |  PrimaryExpression '.' Identifier
+    {
+     }
+
+
+ArgumentList.Opt:
+    /* Optional. */
+    {
+     }
+    | ArgumentList
+    {
+     }
+
+ArgumentList:
+    Expression
+    {
+     }
+    |  ArgumentList ',' Expression
+    {
+     }
+
+
+/* Allocation Expressions. */
+AllocationExpression:
+    NEW_KW NonArrayType '(' ArgumentList.Opt ')'
+    {
+     }
+    | NEW_KW NonArrayType DimExpressions Dims.Opt
+    {
+     }
+
+
+DimExpressions:
+    DimExpression
+    {
+     }
+    |  DimExpressions DimExpression
+    {
+     }
+
+DimExpression:
+    '[' Expression ']'
+    {
+     }
+
+
+Dims.Opt:
+    {
+     }
+    |  Dims
+    {
+     }
+
+Dims:
+    '[' ']'
+    {
+     }
+    |  Dims '[' ']'
+    {
+     }
+
+
+/* Postfix Expressions. */
+
+PostfixExpression:
+    PrimaryExpression
+    {
+     }
+    |  PostIncrement
+    {
+     }
+    |  PostDecrement
+    {
+     }
+
+
+PostIncrement:
+    PrimaryExpression ICR_KW
+    {
+     }
+
+PostDecrement:
+    PrimaryExpression DECR_KW
+    {
+     }
+
+UnaryExpression:
+    PreIncrement
+    {
+     }
+    |  PreDecrement
+    {
+     }
+    |  '+' UnaryExpression
+    {
+     }
+    |  '-' UnaryExpression
+    {
+     }
+    |  UnaryExpressionNotPlusMinus
+    {
+     }
+
+PreIncrement:
+    ICR_KW PrimaryExpression
+    {
+     }
+
+PreDecrement:
+    DECR_KW PrimaryExpression
+    {
+     }
+
+UnaryExpressionNotPlusMinus:
+    PostfixExpression
+    {
+     }
+    |  '~' UnaryExpression
+    {
+     }
+    |  '!' UnaryExpression
+    {
+     }
+    | CastExpression
+    {
+     }
+
+
+MultiplicativeExpression:
+    UnaryExpression
+    {
+     }
+    |  MultiplicativeExpression '*' UnaryExpression
+    {
+     }
+    |  MultiplicativeExpression '/' UnaryExpression
+    {
+     }
+    |  MultiplicativeExpression '%' UnaryExpression
+    {
+     }
+
+AdditiveExpression:
+    MultiplicativeExpression
+    {
+     }
+    |  AdditiveExpression '+' MultiplicativeExpression
+    {
+     }
+    |  AdditiveExpression '-' MultiplicativeExpression
+    {
+     }
+
+ShiftExpression:
+    AdditiveExpression
+    {
+     }
+    |  ShiftExpression LS_KW AdditiveExpression
+    {
+     }
+    |  ShiftExpression RS_KW AdditiveExpression
+    {
+     }
+    |  ShiftExpression URS_KW AdditiveExpression
+    {
+     }
+
+RelationalExpression:
+    ShiftExpression
+    {
+     }
+    |  RelationalExpression '<' ShiftExpression
+    {
+     }
+    |  RelationalExpression '>' ShiftExpression
+    {
+     }
+    |  RelationalExpression GE_KW ShiftExpression
+    {
+     }
+    |  RelationalExpression LE_KW ShiftExpression
+    {
+     }
+    |  RelationalExpression INSTANCEOF_KW TypeName Dims.Opt
+    {
+     }
+
+EqualityExpression:
+    RelationalExpression
+    {
+     }
+    |  EqualityExpression EQ_KW RelationalExpression
+    {
+     }
+    |  EqualityExpression NE_KW RelationalExpression
+    {
+     }
+
+AndExpression:
+    EqualityExpression
+    {
+     }
+    |  AndExpression '&' EqualityExpression
+    {
+     }
+
+ExclusiveOrExpression:
+    AndExpression
+    {
+     }
+    |  ExclusiveOrExpression '^' AndExpression
+    {
+     }
+
+InclusiveOrExpression:
+    ExclusiveOrExpression
+    {
+     }
+    |  InclusiveOrExpression '|' ExclusiveOrExpression
+    {
+     }
+
+ConditionalAndExpression:
+    InclusiveOrExpression
+    {
+     }
+    |  ConditionalAndExpression ANDAND_KW InclusiveOrExpression
+    {
+     }
+
+ConditionalOrExpression:
+    ConditionalAndExpression
+    {
+     }
+    |  ConditionalOrExpression OROR_KW ConditionalAndExpression
+    {
+     }
+
+
+ConditionalExpression:
+    ConditionalOrExpression
+    {
+     }
+    |  ConditionalOrExpression '?' Expression ':' ConditionalExpression
+    {
+     }
+
+
+AssignmentExpression:
+    ConditionalExpression
+    {
+     }
+    |  Assignment
+    {
+     }
+
+Assignment:
+    UnaryExpression AssignmentOperator AssignmentExpression
+    {
+     }
+
+
+CastExpression:
+/* TEST-960613 [HD]: Remplace l'original, pour resoudre les conflits
+		 dans les CastExpresssion et ArrayAccess.
+    '(' TypeName ')' UnaryExpressionNotPlusMinus
+    TEST-960614 [HD]: Remplace le 'QualifiedName' par 'Name', pour resoudre un s/r.
+    TEST-961201 [HD]: Remplace le QualifiedName par un ParenthisedName: enleve 3 s/r.
+    '(' QualifiedName ')' UnaryExpressionNotPlusMinus
+*/
+    ParenthisedName UnaryExpressionNotPlusMinus
+    {
+     }
+    |  '(' PrimitiveType ')' UnaryExpression
+    {
+     }
+
+
+AssignmentOperator:
+    '='
+    {
+     }
+    |  PLUSASSIGN_KW
+    {
+     }
+    |  MINUSASSIGN_KW
+    {
+     }
+    |  TIMEASSIGN_KW
+    {
+     }
+    |  DIVIDEASSIGN_KW
+    {
+     }
+    |  ANDASSIGN_KW
+    {
+     }
+    |  ORASSIGN_KW
+    {
+     }
+    |  NOTASSIGN_KW
+    {
+     }
+    |  MODASSIGN_KW
+    {
+     }
+    |  LSASSIGN_KW
+    {
+     }
+    |  RSASSIGN_KW
+    {
+     }
+    |  URSASSIGN_KW
+    {
+     }
+
+
+IdentifierOpt:
+    /* Optional. */
+    {
+     }
+    |  Identifier
+    {
+     }
+
+
+Identifier:
+    IDENTIFIER_KW
+    {
+     }
+
+
+Type:
+    NonArrayType
+    {
+     }
+    |  ArrayType
+    {
+     }
+
+
+NonArrayType:
+    PrimitiveType
+    {
+     }
+    | TypeName
+    {
+     }
+
+
+PrimitiveType:
+    BOOLEAN_KW
+    {
+	$$= JVM_TYPE_BOOLEAN;
+     }
+    |  CHAR_KW
+    {
+	$$= JVM_TYPE_CHAR;
+     }
+    |  BYTE_KW
+    {
+	$$= JVM_TYPE_SIGNED_BYTE;
+     }
+    |  SHORT_KW
+    {
+	$$= JVM_TYPE_UNSIGNED_SHORT;
+     }
+    |  INT_KW
+    {
+	$$= JVM_TYPE_INTEGER;
+     }
+    |  FLOAT_KW
+    {
+	$$= JVM_TYPE_FLOAT;
+     }
+    |  DOUBLE_KW
+    {
+	$$= JVM_TYPE_DOUBLE;
+     }
+    | LONG_KW
+    {
+	$$= JVM_TYPE_LONG;
+     }
+
+
+ArrayType:
+    PrimitiveType '[' ']'
+    {
+     }
+    | NameArrayStart ']'
+    {
+     }
+    | ArrayType '[' ']'
+    {
+     }
+
+
+Literal:
+    BOOLEAN_LITERAL
+    {
+     }
+    |  CHAR_LITERAL
+    {
+     }
+    |  FLOAT_LITERAL
+    {
+     }
+    |  INT_LITERAL
+    {
+     }
+    |  STRING_LITERAL
+    {
+     }
+    |  LONG_LITERAL
+    {
+     }
+    |  DOUBLE_LITERAL
+    {
+     }
+
+
+/*************************************
+* MODIFIERS (fields, methods, constructors).
+**************************************/
+
+ConstructorModifiers:
+    ConstructorModifier
+    {
+     }
+    |  ConstructorModifiers ConstructorModifier
+    {
+     }
+
+/* ATTENTION: Sensible au contexte. */
+
+ConstructorModifier:
+    PROTECTED_KW
+    {
+     }
+    |  PRIVATE_KW
+    {
+     }
+    |  PUBLIC_KW
+    {
+     }
+
+
+ClassModifiers:
+    ClassModifier
+    {
+     }
+    |  ClassModifiers ClassModifier
+    {
+     }
+
+ClassModifier:
+    ABSTRACT_KW
+    {
+    }
+    |  SubCategory1
+    {
+     }
+
+
+MethodModifiers.Opt:
+    {
+     }
+    | MethodModifiers
+    {
+     }
+
+MethodModifiers:
+    MethodModifier
+    {
+     }
+    |  MethodModifiers MethodModifier
+    {
+     }
+
+
+MethodModifier:
+    ABSTRACT_KW
+    {
+     }
+    | NATIVE_KW
+    {
+     }
+    | SYNCHRONIZED_KW
+    {
+     }
+    | TRANSIENT_KW
+    {
+     }
+    | VOLATILE_KW
+    {
+     }
+    | SubCategory2
+    {
+     }
+
+
+SubCategory2:
+    PROTECTED_KW
+    {
+     }
+    |  PRIVATE_KW
+    {
+     }
+    |  STATIC_KW
+    {
+     }
+    | SubCategory1
+    {
+     }
+
+
+SubCategory1:
+    FINAL_KW
+    {
+     }
+    |  PUBLIC_KW
+    {
+     }
+
+/*** Extension PLZEN. ***/
+
+StateMember:
+    StateDeclarator StateBody
+    TimeInfo.Opt
+    {
+    }
+
+
+StateDeclarator:
+    STATE_KW
+    Identifier '(' ParameterList.Opt ')'
+    {
+    }
+
+
+StateBody:
+    StateBlock
+    {
+     }
+
+StateBlock:
+    '{' 
+    LocalVarDecAndStateStatements StateTransitions.Opt '}'
+    {
+     }
+    | '{' 
+    StateTransitions '}'
+    {
+     }
+    | '{'
+    '}'
+    {
+     }
+
+
+LocalVarDecAndStateStatements:
+    LocalVarDecOrStateStatement
+    {
+    }
+    | LocalVarDecAndStateStatements LocalVarDecOrStateStatement
+    {
+    }
+
+LocalVarDecOrStateStatement:
+    LocalVariableDeclarationStatement
+    {
+    }
+    | StateStatement
+    {
+    }
+
+
+StateStatement:
+    Statement TimeInfo.Opt
+    {
+    }
+
+CriticalStatement:
+    CRITICAL_KW
+     {
+     }
+    '(' ArgumentList.Opt ')' Statement
+    {
+    }
+
+
+FireStatement:
+    FIRE_KW
+     {
+     }
+    QualifiedName FireDestination.Opt ';'
+    {
+    }
+
+FireDestination.Opt:
+	/* Optional. */
+    {
+    }
+    | ON_KW QualifiedName
+    {
+    }
+
+
+StateTransitions.Opt:
+	/* Optional. */
+    {
+    }
+    | StateTransitions
+    {
+    }
+
+
+StateTransitions:
+  StateTransition
+    {
+    }
+  |  StateTransitions StateTransition
+    {
+    }
+
+
+StateTransition:
+    TransitionModifiers.Opt TRANSITION_KW
+     {
+     }
+    PureStateTransition ';'
+    {
+    }
+
+
+PureStateTransition:
+    QualifiedName ':' TransitionSkip
+    {
+    }
+    | QualifiedName ':' TransitionDestination
+    {
+    }
+    | DEFAULT_KW ':' TransitionDestination
+    {
+    }
+    | DEFAULT_KW ':' BREAK_KW
+    {
+    }
+
+
+TransitionDestination:
+/* ATTN: The push/pop is not yet accepted.
+    DestinationModifier.Opt
+*/
+    Identifier '(' ArgumentList.Opt ')'
+    {
+     }
+
+TransitionSkip:
+    PASSBY_KW
+    {
+    }
+    | CONSUME_KW
+    {
+    }
+    | BREAK_KW
+    {
+    }
+
+
+DestinationModifier.Opt:
+	/* Optional. */
+    {
+    }
+    | PUSH_KW
+    {
+    }
+    | POP_KW
+    {
+    }
+
+TransitionModifiers.Opt:
+	/* Optional. */
+    {
+    }
+    | TransitionModifiers
+    {
+    }
+
+TransitionModifiers:
+    TransitionModifier
+    {
+    }
+    | TransitionModifiers TransitionModifier
+    {
+    }
+
+TransitionModifier:
+    BLOCKING_KW
+    {
+    }
+    | IMMEDIATE_KW
+    {
+    }
+    | PARALLEL_KW
+    {
+    }
+    | IMPLICIT_KW
+    {
+    }
+
+NameList:
+    Name
+    {
+    }
+    | NameList ',' Name
+    {
+    }
+
+
+TimeInfo.Opt:
+    /* Optional. */
+    {
+    }
+    |  '@' '[' TimeValue ']'
+     {
+     }
+
+TimeValue:
+    LITERAL_TIME
+    {
+    }
+
+
+/*** Extension SQL-92. ***/
+Receiver.Opt:
+    /* Nothing. */
+    {
+    }
+  | '(' Expression ')'
+    {
+    }
+
+sql92.ProcedureStatementList:
+    sql92.SingleStatement
+    {
+    }
+  | sql92.ProcedureStatementList sql92.SingleStatement
+    {
+    }
+
+
+sql92.SingleStatement:
+    sql92.ProcedureStatement ';'
+    {
+    }
+    | error ';'
+    {
+    }
+
+sql92.ProcedureStatement:
+    sql92.DataStatement
+    | sql92.TransactionStatement
+/*
+    | sql92.SchemaStatement
+    | sql92.SessionStatement
+    | sql92.diagnosticsStatement
+*/
+
+
+sql92.DataStatement:
+    sql92.OpenStatement
+  | sql92.FetchStatement
+  | sql92.CloseStatement
+  | sql92.SelectStatementSingleRow
+  | sql92.DataChange
+  | sql92.SelectStatementMultipleRow
+
+sql92.TransactionStatement:
+/*
+    sql92.SetTransactionStatement
+  | sql92.SetConstraintsModeStatement
+  | 
+*/
+    sql92.CommitStatement
+  | sql92.RollbackStatement
+
+
+sql92.OpenStatement:
+    OPEN_KW Identifier
+    {
+     }
+
+
+sql92.FetchStatement:
+    FETCH_KW sql92.FetchOrientationOpt Identifier INTO_KW sql92.FetchTargetList
+    {
+     }
+
+
+sql92.FetchOrientationOpt:
+    {
+     }
+     | sql92.FetchOrientation FROM_KW
+    {
+     }
+
+sql92.FetchOrientation:
+    NEXT_KW
+    {
+     }
+  | PRIOR_KW
+    {
+     }
+  | FIRST_KW
+    {
+     }
+  | LAST_KW
+    {
+     }
+  | ABSOLUTE_KW sql92.SimpleValueSpec
+    {
+     }
+  | RELATIVE_KW sql92.SimpleValueSpec
+    {
+     }
+
+
+sql92.SimpleValueSpec:
+    sql92.EmbeddedVarName
+    {
+    }
+  | sql92.Literal
+
+
+sql92.FetchTargetList:
+    sql92.SelectTargetList
+
+
+sql92.CloseStatement:
+    CLOSE_KW Identifier
+    {
+     }
+
+
+sql92.CommitStatement:
+    COMMIT_KW sql92.Work.Opt
+    {
+     }
+
+
+sql92.RollbackStatement:
+    ROLLBACK_KW sql92.Work.Opt
+    {
+     }
+
+
+sql92.Work.Opt:
+    /* Nothing. */
+  | WORK_KW
+
+
+sql92.DataChange:
+    sql92.DeleteStatementPos
+  | sql92.DeleteStatementSearched
+  | sql92.InsertStatement
+  | sql92.UpdateStatementPos
+  | sql92.UpdateStatementSearched
+
+
+sql92.DeleteStatementPos:
+    DELETE_KW FROM_KW sql92.TableName WHERE_KW CURRENT_KW OF_KW Identifier
+    {
+     }
+
+
+sql92.DeleteStatementSearched:
+    DELETE_KW FROM_KW sql92.TableName sql92.WhereClauseOpt
+    {
+     }
+
+
+sql92.InsertStatement:
+    INSERT_KW INTO_KW sql92.TableName sql92.InsertColsAndSource
+    {
+     }
+
+
+sql92.InsertColsAndSource:
+    sql92.InsertColList sql92.QueryExpr
+    {
+    }
+  | sql92.QueryExpr
+    {
+    }
+  | DEFAULT_KW VALUES_KW
+    {
+    }
+
+
+sql92.InsertColList:
+    '(' IdentifierList ')'
+    {
+    }
+
+
+sql92.UpdateStatementPos:
+    UPDATE_KW sql92.TableName SET_KW sql92.SetClauseList WHERE_KW CURRENT_KW OF_KW Identifier
+    {
+    }
+
+
+sql92.UpdateStatementSearched:
+        UPDATE_KW sql92.TableName SET_KW sql92.SetClauseList sql92.WhereClauseOpt
+    {
+     }
+
+
+sql92.SetClauseList:
+    sql92.SetClause
+    {
+     }
+  | sql92.SetClauseList ',' sql92.SetClause
+    {
+     }
+
+
+sql92.SetClause:
+    Identifier '=' sql92.UpdateSource
+    {
+     }
+
+
+sql92.UpdateSource:
+    sql92.ValueExpr
+  | sql92.NullSpec
+  | sql92.DefaultSpec
+
+
+sql92.SelectStatementSingleRow:
+    SELECT_KW  sql92.SetQuantifier  sql92.SelectList   INTO_KW  sql92.SelectTargetList  sql92.TableExpression
+    {
+    }
+
+
+sql92.SelectStatementMultipleRow:
+   sql92.QuerySpec
+   {
+   }
+
+
+sql92.SetQuantifier:
+    /* Nothing. */
+    {
+     }
+  | DISTINCT_KW
+    {
+     }
+  | ALL_KW
+    {
+     }
+
+
+sql92.SelectList:
+    '*'
+    {
+     }
+  | sql92.SelectSubList
+
+
+
+sql92.SelectSubList:	
+    sql92.SelectSubListElement
+    {
+     }
+  | sql92.SelectSubList ',' sql92.SelectSubListElement
+    {
+     }
+
+
+sql92.SelectSubListElement:
+    sql92.DerivedColumn
+    {
+     }
+  | sql92.TableName '.' '*'
+    {
+     }
+
+
+sql92.DerivedColumn:
+    sql92.ValueExpr
+  | sql92.ValueExpr sql92.AsClause
+    {
+    }
+
+sql92.AsClause:
+    sql92.AsOpt Identifier
+    {
+    }
+
+
+sql92.TableName:
+    sql92.QualifiedName
+  | MODULE_KW '.' Identifier
+    {
+    }
+
+
+sql92.QualifiedName:
+    Identifier
+    {
+    }
+  | sql92.QualifiedName '.' Identifier
+    {
+    }
+
+
+/* MOD-961219 [HD]: Simplified sql92.QualifiedName, and took this one out.
+sql92.SchemaName:			* 487 *
+    Identifier '.' Identifier
+  | Identifier
+*/
+
+
+sql92.ValueExpr:
+    sql92.NumericValueExpr
+  | sql92.StringValueExpr
+/* ATTENTION: A supporter.
+  | sql92.DateTimeValueExpr
+  | sql92.IntervalValueExpr
+*/
+
+sql92.NumericValueExpr:
+    sql92.Term
+  | sql92.NumericValueExpr '+' sql92.Term
+    {
+    }
+  | sql92.NumericValueExpr '-' sql92.Term
+    {
+    }
+
+
+sql92.Term:
+    sql92.Factor
+  | sql92.Term '*' sql92.Factor
+    {
+    }
+  | sql92.Term '/' sql92.Factor
+    {
+    }
+
+
+sql92.Factor:
+  '+' sql92.NumericPrimary
+    {
+    }
+  | '-' sql92.NumericPrimary
+    {
+    }
+  | sql92.NumericPrimary
+
+
+sql92.NumericPrimary:
+    sql92.ValueExprPrimary
+  | sql92.NumericValueFunction
+
+
+sql92.ValueExprPrimary:
+    sql92.UnsignedValueSpec
+  | sql92.TableName
+    {
+    }
+  | sql92.SetFunctionSpec
+  | sql92.SubQuery
+/* ATTENTION: A supporter.
+  | sql92.CaseExpr
+*/
+  | '(' sql92.ValueExpr ')'
+    {
+    }
+/* ATTENTION: A supporter.
+  | sql92.CastSpec
+*/
+
+sql92.UnsignedValueSpec:
+    sql92.UnsignedLiteral
+  | sql92.GeneralValueSpec
+
+
+sql92.Literal:
+    sql92.SignedNumericLiteral
+  | sql92.GeneralLiteral
+
+sql92.SignedNumericLiteral:
+    '+' sql92.UnsignedNumericLiteral
+    {
+    }
+    | '-' sql92.UnsignedNumericLiteral
+    {
+    }
+   | sql92.UnsignedNumericLiteral
+
+
+sql92.UnsignedLiteral:
+    sql92.UnsignedNumericLiteral
+  | sql92.GeneralLiteral
+
+
+sql92.UnsignedNumericLiteral:
+    LITERAL_INT
+    {
+    }
+  | LITERAL_FLOAT
+    {
+    }
+
+
+sql92.GeneralLiteral:
+    LITERAL_CHAR
+    {
+    }
+/* ATTENTION: A supporter.
+  | sql92.NCharStringLit
+  | sql92.BitStringLit
+  | sql92.HexStringLit
+*/
+
+sql92.GeneralValueSpec:
+  sql92.VariableSpec
+  | USER_KW
+    {
+    }
+  | CURRENT_U_KW
+    {
+    }
+  | SESSION_U_KW
+    {
+    }
+  | SYSTEM_U_KW
+    {
+    }
+  | VALUE_KW
+    {
+    }
+
+
+sql92.VariableSpec:
+    sql92.EmbeddedVarName
+    {
+    }
+  | sql92.EmbeddedVarName sql92.IndicatorVar
+    {
+    }
+
+
+sql92.EmbeddedVarName:
+    ':' Expression
+    {
+    }
+
+ 
+sql92.IndicatorVar:
+     sql92.EmbeddedVarName
+  | INDICATOR_KW sql92.EmbeddedVarName
+    {
+    }
+
+
+sql92.SetFunctionSpec:
+    COUNT_KW '(' '*' ')'
+    {
+    }
+  | sql92.SetFctType '(' sql92.SetQuantifier sql92.ValueExpr ')'
+    {
+    }
+
+
+sql92.SetFctType:
+    AVG_KW
+    {
+    }
+  | MAX_KW
+    {
+    }
+  | MIN_KW
+    {
+    }
+  | SUM_KW
+    {
+    }
+  | COUNT_KW
+    {
+    }
+
+
+sql92.QueryExpr:
+    sql92.NonJoinQueryExpr
+  | sql92.JoinedTable
+  {
+  }
+
+
+sql92.NonJoinQueryExpr:
+    sql92.NonJoinQueryTerm
+  | sql92.QueryExpr  UNION_KW  sql92.AllOpt  sql92.CorrespSpecOpt sql92.QueryTerm
+    {
+    }
+  | sql92.QueryExpr  EXCEPT_KW  sql92.AllOpt  sql92.CorrespSpecOpt sql92.QueryTerm
+    {
+    }
+
+
+sql92.NonJoinQueryTerm:
+    sql92.NonJoinQueryPrimary
+  | sql92.QueryTerm INTERSECT_KW sql92.AllOpt sql92.CorrespSpecOpt sql92.QueryPrimary
+    {
+    }
+
+
+sql92.CorrespSpecOpt:
+  | sql92.CorrespSpec
+
+
+sql92.NonJoinQueryPrimary:
+    sql92.SimpleTable
+  | '(' sql92.NonJoinQueryExpr ')'
+  {
+  }
+
+
+sql92.SimpleTable:
+    sql92.QuerySpec
+  | sql92.TableValueConstr
+  | sql92.ExplicitTable
+
+
+sql92.QuerySpec:
+    SELECT_KW sql92.SetQuantifier sql92.SelectList sql92.TableExpression
+    {
+    }
+
+
+sql92.SubQuery:
+    '(' sql92.QueryExpr ')'
+    {
+    }
+
+
+sql92.TableValueConstr:
+    VALUES_KW sql92.TableValueConstrList
+    {
+    }
+
+
+sql92.TableValueConstrList:
+    sql92.RowValueConstr
+    {
+    }
+  | sql92.TableValueConstrList ',' sql92.RowValueConstr
+    {
+    }
+
+
+sql92.ExplicitTable:
+    TABLE_KW sql92.TableName
+    {
+	$$= new JCSqlContainerExpr($2, JCSqlContainerExpr::table);
+    }
+
+
+sql92.QueryTerm:
+    sql92.NonJoinQueryTerm
+    {
+    }
+  | sql92.JoinedTable
+    {
+    }
+
+
+sql92.QueryPrimary:
+    sql92.NonJoinQueryPrimary
+    {
+    }
+  | sql92.JoinedTable
+    {
+    }
+
+
+sql92.JoinedTable:
+    sql92.CrossJoin
+    {
+    }
+  | sql92.QualifiedJoin
+    {
+    }
+  | '(' sql92.JoinedTable ')'
+    { 
+    }
+
+
+sql92.CrossJoin:
+     sql92.TableReference CROSS_KW JOIN_KW sql92.TableReference
+     {
+     }
+ 
+/* ATTN-970802 [HD]: This rule is incorrect, sql92.NaturalSpec should be sql92.NaturalOpt.
+* But the right rule creates 18 r/r conflicts (JoinSpecOpt seems to be the place to fix).
+*/
+sql92.QualifiedJoin:
+     sql92.TableReference sql92.NatAndJoinType.Opt
+	    JOIN_KW sql92.TableReference sql92.JoinSpec.Opt
+     {
+     }
+
+sql92.NatAndJoinType.Opt:
+    /* Nothing. */
+    | NATURAL_KW
+    | NATURAL_KW sql92.JoinType
+    | sql92.JoinType
+
+sql92.JoinType:
+    INNER_KW
+  | sql92.OuterJoinType
+  | sql92.OuterJoinType OUTER_KW
+  | UNION_KW
+
+sql92.OuterJoinType:
+    LEFT_KW
+  | RIGHT_KW
+  | FULL_KW
+
+sql92.JoinSpec.Opt:
+  | sql92.JoinSpec
+
+
+sql92.JoinSpec:
+    sql92.JoinCond
+  | sql92.NamedColumnJoin
+    {
+    }
+
+sql92.JoinCond:
+    ON_KW sql92.SearchCond
+
+
+sql92.NamedColumnJoin:
+    USING_KW '(' IdentifierList ')'
+    {
+    }
+
+
+sql92.TableReference:
+    sql92.TableName
+    {
+    }
+  | sql92.TableName sql92.TableReferenceEndPart
+    {
+    }
+  | sql92.SubQuery sql92.TableReferenceEndPart
+    {
+    }
+  | sql92.JoinedTable
+    {
+    }
+
+sql92.TableReferenceEndPart:
+    sql92.AsOpt Identifier
+    {
+    }
+  | sql92.AsOpt Identifier '(' IdentifierList ')'
+    {
+    }
+
+
+sql92.TableExpression:
+     sql92.FromClause    sql92.WhereClauseOpt    sql92.GroupByClauseOpt 
+	    sql92.OrderByOpt    sql92.HavingClauseOpt
+     {
+     }
+
+
+sql92.FromClause:
+    /* Nothing */
+    {
+    }
+  | FROM_KW sql92.TableReferenceList
+    {
+    }
+
+sql92.TableReferenceList:
+    sql92.TableReference
+    {
+    }
+  | sql92.TableReferenceList ',' sql92.TableReference
+    {
+    }
+
+
+sql92.WhereClauseOpt:
+    {
+    }
+  |  sql92.WhereClause
+
+
+sql92.WhereClause:
+    WHERE_KW  sql92.SearchCond
+    {
+    }
+
+sql92.OrderByOpt:
+    /* Nothing. */
+    {
+    }
+  | ORDER_KW BY_KW sql92.SortList
+    {
+    }
+    
+
+sql92.SortList:
+    sql92.SortItem
+    {    
+    }
+    | sql92.SortList ',' sql92.SortItem
+    {    
+    }
+
+
+sql92.SortItem:
+    Identifier sql92.CollateClauseOpt sql92.SortDirectionOpt
+    {    
+    }
+
+
+sql92.CollateClauseOpt:
+    /* Nothing. */
+    {    
+    }
+    | sql92.CollateClause
+
+
+sql92.SortDirectionOpt:
+    /* Nothing. */
+    {    
+    }
+    | sql92.SortDirection
+
+sql92.SortDirection:
+    ASC_KW
+    {
+    }
+  | DESC_KW
+    {
+    }
+
+
+sql92.GroupByClauseOpt:
+    /* Nothing. */
+    {
+    }
+  | sql92.GroupByClause
+
+
+sql92.GroupByClause:
+    GROUP_KW BY_KW sql92.GroupingColumnRefList
+    {
+    }
+
+
+sql92.GroupingColumnRefList:
+    sql92.GroupingColumnRef
+    {    
+    }
+  | sql92.GroupingColumnRefList ',' sql92.GroupingColumnRef
+    {    
+    }
+
+
+sql92.GroupingColumnRef:
+    sql92.TableName
+    {    
+    }
+  | sql92.TableName sql92.CollateClause
+    {    
+    }
+
+
+sql92.CollateClause:
+    COLLATE_KW sql92.QualifiedName
+    {    
+    }
+
+
+sql92.HavingClauseOpt:
+    /* Nothing. */
+    {
+    }
+  | sql92.HavingClause
+
+sql92.HavingClause:
+     HAVING_KW sql92.SearchCond
+    {
+    }
+
+
+sql92.SearchCond:
+    sql92.BooleanTerm
+  | sql92.SearchCond OR_KW sql92.BooleanTerm
+    {
+    }
+
+
+sql92.BooleanTerm:
+    sql92.BooleanFactor
+  | sql92.BooleanTerm AND_KW sql92.BooleanFactor
+    {
+    }
+
+
+sql92.BooleanFactor:
+/*    NotOpt BooleanTest */
+    NOT_KW sql92.BooleanTest
+    {
+    }
+  | sql92.BooleanTest
+
+
+sql92.BooleanTest:
+    sql92.BooleanPrimary
+  | sql92.BooleanPrimary IS_KW sql92.NotOpt sql92.TruthValue
+    {
+    }
+
+
+sql92.BooleanPrimary:
+    sql92.Predicate
+  | '(' sql92.SearchCond ')'
+    {
+    }
+
+
+sql92.Predicate:
+    sql92.ComparePred
+  | sql92.BetweenPred
+  | sql92.InPred
+  | sql92.LikePred
+  | sql92.NullPred
+  | sql92.QuantifiedCompPred
+  | sql92.ExistsPred
+  | sql92.UniquePred
+  | sql92.MatchPred
+  | sql92.OverlapsPred
+
+
+sql92.ComparePred:
+    sql92.RowValueConstr sql92.CompOp sql92.RowValueConstr
+    {
+    }
+
+
+sql92.BetweenPred:
+     sql92.RowValueConstr sql92.NotOpt BETWEEN_KW sql92.RowValueConstr AND_KW sql92.RowValueConstr
+    {
+    }
+
+
+sql92.InPred:
+   sql92.RowValueConstr sql92.NotOpt IN_KW sql92.InPredValue
+    {
+    }
+
+
+sql92.InPredValue:
+    sql92.SubQuery
+  | '(' sql92.InValueList ')'
+    {
+    }
+
+
+sql92.InValueList:
+    sql92.ValueExpr
+    {
+    }
+  | sql92.InValueList ',' sql92.ValueExpr
+    {
+    }
+
+
+sql92.LikePred:
+    sql92.CharValueExpr sql92.NotOpt LIKE_KW sql92.CharValueExpr
+    {
+    }
+  | sql92.CharValueExpr sql92.NotOpt LIKE_KW sql92.CharValueExpr ESCAPE_KW sql92.CharValueExpr
+    {
+    }
+
+
+sql92.NullPred:
+    sql92.RowValueConstr IS_KW sql92.NotOpt NULL_KW
+    {
+    }
+
+
+sql92.QuantifiedCompPred:
+     sql92.RowValueConstr sql92.CompOp sql92.Quantifier sql92.SubQuery
+    {
+    }
+
+
+sql92.ExistsPred:
+    EXISTS_KW sql92.SubQuery
+    {
+    }
+
+
+sql92.UniquePred:
+    UNIQUE_KW sql92.SubQuery
+    {
+    }
+
+
+sql92.MatchPred:
+    sql92.RowValueConstr MATCH_KW sql92.MatchModeOpt sql92.SubQuery
+    {
+    }
+
+
+sql92.OverlapsPred:
+   sql92.RowValueConstr OVERLAPS_KW sql92.RowValueConstr
+    {
+    }
+
+
+sql92.CompOp:
+    '='
+    {
+    }
+  | NE_KW
+     {
+    }
+ | '<'
+    {
+    }
+  | '>'
+    {
+    }
+  | LE_KW
+    {
+    }
+  | GE_KW
+    {
+    }
+
+
+sql92.MatchModeOpt:
+    sql92.UniqueOpt sql92.FullOpt
+    {
+     }
+
+sql92.UniqueOpt:
+    /* empty */
+    {
+    }
+  | UNIQUE_KW
+    {
+    }
+
+sql92.FullOpt:
+    /* empty */
+    {
+    }
+  | PARTIAL_KW
+    {
+    }
+  | FULL_KW
+    {
+    }
+
+
+sql92.Quantifier:
+    ALL_KW
+    {
+    }
+  | SOME_KW
+    {
+    }
+  | ANY_KW
+    {
+    }
+
+
+sql92.AllOpt:
+    {
+    }
+  | ALL_KW
+    {
+    }
+
+
+sql92.TruthValue:
+    TRUE_KW
+    {
+    }
+  | FALSE_KW
+    {
+    }
+  | UNKNOWN_KW
+    {
+    }
+
+
+sql92.RowValueConstr:
+    sql92.RowValueConstrEle
+  | '(' sql92.RowValueConstrList ')'
+    {
+    }
+/* MOD-961219 [HD]: Not necessary, sql92.ValueExpr covers this case.
+  | sql92.SubQuery
+*/
+
+
+/* ATTN-970802 [HD]: This is the same as 'UpdateSource'. Can it be merged into one nonterm. ? */
+sql92.RowValueConstrEle:
+    sql92.ValueExpr
+  | sql92.NullSpec
+  | sql92.DefaultSpec
+
+
+sql92.NullSpec:
+    NULL_KW
+    {
+    }
+
+
+sql92.DefaultSpec:
+    DEFAULT_KW
+    {
+    }
+
+
+sql92.RowValueConstrList:
+    sql92.RowValueConstrEle
+    {    
+    }
+  | sql92.RowValueConstrList ',' sql92.RowValueConstrEle
+    {    
+    }
+
+
+sql92.SelectTargetList:
+    sql92.VariableSpec
+    {
+    }
+  | sql92.SelectTargetList ',' sql92.VariableSpec
+    {
+    }
+
+
+sql92.AsOpt:
+    /* Nothing. */
+  | AS_KW
+
+
+sql92.NotOpt:
+    {
+    }
+  | NOT_KW
+    {
+    }
+
+
+sql92.CorrespSpec:
+    CORRESPONDING_KW
+    {    
+    }
+  | CORRESPONDING_KW BY_KW '(' IdentifierList ')'
+    {    
+    }
+
+
+IdentifierList:
+    Identifier
+    {
+    }
+    | IdentifierList ',' Identifier
+    {
+    }
+
+
+/**** ATTENTION: Definitions temporaires. *****/ 
+
+sql92.StringValueExpr:
+    '1'
+    {
+    }
+
+sql92.NumericValueFunction:
+    '2'
+    {
+    }
+
+
+sql92.CharValueExpr:
+    'a'
+    {
+    }
+
+
+
+%%
+
+/* --------------- Fin de la grammaire --------------- */
+
